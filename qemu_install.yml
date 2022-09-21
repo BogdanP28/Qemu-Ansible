@@ -1,0 +1,77 @@
+- hosts: agent1
+  tasks:
+  - name: Update apt repo and cache on all Debian/Ubuntu boxes
+    apt: update_cache=yes force_apt_get=yes cache_valid_time=3600
+  - name: Upgrade all packages on servers
+    apt: upgrade=dist force_apt_get=yes
+  - name: Check if a reboot is needed on all servers
+    register: reboot_required_file
+    stat: path=/var/run/reboot-required get_md5=no
+  - name: Reboot the box if kernel updated
+    reboot:
+      msg: "Reboot initiated by Ansible for kernel updates"
+      connect_timeout: 5
+      reboot_timeout: 300
+      pre_reboot_delay: 0
+      post_reboot_delay: 30
+      test_command: uptime
+    when: reboot_required_file.stat.exists
+  - name: "Install packages"
+    apt:
+      update_cache: yes
+      cache_valid_time: 3600
+      install_recommends: yes
+      name:
+        - build-essential
+        - cmake
+        - linux-headers-{{ ansible_kernel }}
+        - libboost-system-dev
+        - autoconf
+        - libtool
+        - pkg-config
+        - autoconf
+        - libtool
+        - xsltproc
+        - libssl-dev
+        - libsqlite3-dev
+        - sqlite3
+        - libsystemd-dev
+        - libboost-regex-dev
+        - libboost-filesystem-dev
+        - libboost-log-dev
+        - libqt5serialport5-dev
+        - qtbase5-dev
+        - qtdeclarative5-dev
+        - qemu
+        - bridge-utils
+        - iptables
+        - dnsmasq
+        - net-tools
+      state: present
+  - name: "Create directory"
+    file:
+       path: /workspace
+       state: directory
+
+  - name: "Clone dlt - viewer repo"
+    git:
+     repo: https://github.com/COVESA/dlt-viewer.git
+     dest: workspace/dlt-viewer
+     clone: yes
+     update: yes
+     version: tags/v2.21.2
+
+  - name: "Create dlt-viewer/build"
+    file:
+      path: workspace/dlt-viewer/build
+      state: directory
+
+  - name: "Execute make"
+    shell: cmake ..
+    args:
+      chdir: workspace/dlt-viewer/build
+  - name: "Execute make -j4"
+    shell: make -j4
+    args:
+      chdir: workspace/dlt-viewer/build
+    
